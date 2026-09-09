@@ -135,6 +135,30 @@ any Postgres to test syncing.
 4. Under **Storage**, create a Neon database — `DATABASE_URL` is wired up for you.
 5. Deploy. Vercel's Hobby plan and Neon's free tier cover this shop at no cost.
 
+## If a deployment says "Blocked"
+
+Vercel's Hobby plan does not allow outside contributors on a private
+repository, and it decides who the contributor is from the **commit author
+email**. If you commit from a machine whose git identity is some other address,
+Vercel treats the push as coming from a stranger and blocks the build before it
+starts.
+
+Check what a machine is committing as:
+
+```bash
+git config user.email
+```
+
+It must be an email verified on the GitHub account that owns this repository
+(`sattwikjana77@gmail.com`). Fix it for this repository with:
+
+```bash
+git config user.email "sattwikjana77@gmail.com"
+```
+
+Commits already pushed under the wrong address stay blocked, but a new commit
+with the right one deploys normally and carries all the earlier work with it.
+
 ## Installing it on a phone
 
 Open the site in Chrome on Android → menu → **Add to Home screen**. It then opens like a normal app, full screen, and works offline.
