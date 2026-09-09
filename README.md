@@ -9,17 +9,45 @@
 
 ## What it does
 
+The point of the app is the **customer book**: who buys, how much they have spent
+over their lifetime, and how many points they hold. Billing is how that record
+gets captured.
+
 | | |
 |---|---|
-| 🧾 **Billing** | Build a bill in seconds, print it, or send it on WhatsApp |
-| 📱 **Instant customer lookup** | Type the **last 4–5 digits** of a mobile number and a returning customer appears with their name, points, visits and lifetime spend — every detail auto-fills |
+| 📱 **Instant customer lookup** | Type the **last 4–5 digits** of a mobile number and matching customers appear as you type. Tap one and every detail fills in — name, phone, points, past visits, lifetime spend |
+| 👤 **Customer book** | Lifetime spend, visit count, last visit, birthday and a full points ledger for every customer |
 | ⭐ **Loyalty points** | Earn on every bill, redeem against future ones. You set the rules |
+| 🎟️ **Referrals** | Every customer gets a shareable code. When a friend joins with it, both get points — and the referrer can also earn a percentage of that friend's first bill |
+| 🧾 **Billing** | Build a bill in seconds, print it, or send it on WhatsApp |
 | 📦 **Products & stock** | Stock drops automatically with each sale, with low-stock and out-of-stock alerts |
 | 📓 **Khata / Udhaar** | Track who still owes you, and send a polite WhatsApp reminder in one tap |
 | 💸 **Expenses** | Rent, stock, salary, electricity — so reports show what you actually earned |
 | 📊 **Reports** | Daily sales, best sellers, top customers, payment-mode split, CSV export |
 | 🎂 **Birthday offers** | See whose birthday falls this month and message them |
+| 🧮 **Points ledger** | Every point earned, redeemed, referred or hand-adjusted is logged, so a balance can always be explained |
 | 📄 **One-click PDF** | Download or share a proper A4 invoice with your logo |
+
+## How the rewards work
+
+All of it is adjustable under **Loyalty**, and changes apply to new bills.
+
+**Loyalty points**
+
+- Points for every ₹100 spent (default 5)
+- What one point is worth when redeemed (default ₹1)
+- Minimum balance before a customer can spend points (default 50)
+
+**Referrals**
+
+- Points to the referrer when someone uses their code (default 50)
+- Welcome points to the friend who used it (default 25)
+- A percentage of the friend's **first** bill, credited to the referrer as
+  points (default 5%) — paid once, on that first purchase
+
+A customer's code looks like `PRIY119`: the first letters of their name plus a
+number derived from their record, so it stays the same for life and is easy to
+read out over the counter. Open a customer to copy it or send it on WhatsApp.
 
 ## Where your data lives
 

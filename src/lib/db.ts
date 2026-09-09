@@ -6,6 +6,8 @@ import type {
   Expense,
   Invoice,
   Item,
+  PointsEntry,
+  PointsReason,
   Settings,
 } from "./types";
 
@@ -31,6 +33,12 @@ export const DEFAULT_SETTINGS: Settings = {
     minRedeem: 50,
     birthdayBonus: 100,
   },
+  referral: {
+    enabled: true,
+    referrerBonus: 50,
+    friendBonus: 25,
+    firstPurchasePercent: 5,
+  },
   footerNote: "Thank you for shopping with us! Visit again 💜",
 };
 
@@ -42,7 +50,36 @@ function emptyDb(): Database {
     items: [],
     invoices: [],
     expenses: [],
+    pointsLog: [],
   };
+}
+
+// ── Referral codes ──────────────────────────────────────────────────────
+
+function hash32(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/**
+ * A short, sayable code like `PRIY482`. Derived from the customer id, so it is
+ * stable for a given customer and identical every time it is recomputed — that
+ * lets older records without a stored code be backfilled on read without
+ * writing to storage.
+ */
+export function deriveReferralCode(id: string, name: string) {
+  const letters = name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+  return `${(letters || "PORI").padEnd(4, "X")}${String(hash32(id) % 1000).padStart(3, "0")}`;
+}
+
+export function findByReferralCode(db: Database, code: string) {
+  const wanted = code.trim().toUpperCase().replace(/\s+/g, "");
+  if (!wanted) return undefined;
+  return db.customers.find((c) => c.referralCode.toUpperCase() === wanted);
 }
 
 // ── Store internals ─────────────────────────────────────────────────────
@@ -65,7 +102,13 @@ function read(): Database {
         ...DEFAULT_SETTINGS,
         ...parsed.settings,
         loyalty: { ...DEFAULT_SETTINGS.loyalty, ...parsed.settings?.loyalty },
+        referral: { ...DEFAULT_SETTINGS.referral, ...parsed.settings?.referral },
       },
+      customers: (parsed.customers ?? []).map((c) =>
+        c.referralCode
+          ? c
+          : { ...c, referralCode: deriveReferralCode(c.id, c.name) },
+      ),
     };
     return cache;
   } catch {
@@ -136,35 +179,114 @@ export function uid(prefix = "") {
 
 // ── Mutations ───────────────────────────────────────────────────────────
 
-export function saveCustomer(
-  input: Omit<Customer, "id" | "createdAt" | "loyaltyPoints" | "totalSpent" | "visits"> &
-    Partial<Pick<Customer, "id" | "loyaltyPoints" | "totalSpent" | "visits" | "lastVisit">>,
-): Customer {
+function entry(
+  customerId: string,
+  points: number,
+  reason: PointsReason,
+  note?: string,
+  invoiceId?: string,
+): PointsEntry {
+  return {
+    id: uid("p_"),
+    customerId,
+    date: new Date().toISOString(),
+    points,
+    reason,
+    note,
+    invoiceId,
+  };
+}
+
+export type CustomerInput = Omit<
+  Customer,
+  "id" | "createdAt" | "loyaltyPoints" | "totalSpent" | "visits" | "referralCode"
+> &
+  Partial<
+    Pick<
+      Customer,
+      "id" | "loyaltyPoints" | "totalSpent" | "visits" | "lastVisit" | "referralCode"
+    >
+  > & {
+    /** Code the new customer was referred with, entered at signup. */
+    referralCodeUsed?: string;
+  };
+
+export function saveCustomer(input: CustomerInput): Customer {
   let saved!: Customer;
   update((db) => {
-    const existingIdx = input.id
-      ? db.customers.findIndex((c) => c.id === input.id)
-      : db.customers.findIndex((c) => c.phone === input.phone);
+    const { referralCodeUsed, ...fields } = input;
 
+    const existingIdx = fields.id
+      ? db.customers.findIndex((c) => c.id === fields.id)
+      : db.customers.findIndex((c) => c.phone === fields.phone);
+
+    // Editing an existing customer never re-runs referral rewards.
     if (existingIdx >= 0) {
       const prev = db.customers[existingIdx];
-      saved = { ...prev, ...input, id: prev.id };
+      saved = { ...prev, ...fields, id: prev.id, referralCode: prev.referralCode };
       const customers = [...db.customers];
       customers[existingIdx] = saved;
       return { ...db, customers };
     }
 
+    const id = fields.id ?? uid("c_");
+    const referrer = db.settings.referral.enabled
+      ? referralCodeUsed
+        ? findByReferralCode(db, referralCodeUsed)
+        : undefined
+      : undefined;
+
+    const { referrerBonus, friendBonus } = db.settings.referral;
+    const welcome = referrer ? friendBonus : 0;
+
     saved = {
       loyaltyPoints: 0,
       totalSpent: 0,
       visits: 0,
-      ...input,
-      id: input.id ?? uid("c_"),
+      ...fields,
+      id,
+      referralCode: fields.referralCode ?? deriveReferralCode(id, fields.name),
+      referredBy: referrer?.id,
       createdAt: new Date().toISOString(),
     } as Customer;
-    return { ...db, customers: [saved, ...db.customers] };
+    saved.loyaltyPoints += welcome;
+
+    const log: PointsEntry[] = [];
+    if (referrer) {
+      if (welcome > 0) {
+        log.push(
+          entry(saved.id, welcome, "referral-welcome", `Joined using ${referrer.name}'s code`),
+        );
+      }
+      if (referrerBonus > 0) {
+        log.push(
+          entry(referrer.id, referrerBonus, "referral-reward", `Referred ${saved.name}`),
+        );
+      }
+    }
+
+    const customers = [saved, ...db.customers].map((c) =>
+      referrer && c.id === referrer.id
+        ? { ...c, loyaltyPoints: c.loyaltyPoints + referrerBonus }
+        : c,
+    );
+
+    return { ...db, customers, pointsLog: [...log, ...db.pointsLog] };
   });
   return saved;
+}
+
+/** Hand-adjust a balance (a goodwill gift, or fixing a mistake). */
+export function adjustPoints(customerId: string, points: number, note: string) {
+  update((db) => ({
+    ...db,
+    customers: db.customers.map((c) =>
+      c.id === customerId
+        ? { ...c, loyaltyPoints: Math.max(0, c.loyaltyPoints + points) }
+        : c,
+    ),
+    pointsLog: [entry(customerId, points, "manual", note), ...db.pointsLog],
+  }));
 }
 
 export function deleteCustomer(id: string) {
@@ -249,15 +371,63 @@ export function commitInvoice(
       return sold ? { ...it, stock: it.stock - sold } : it;
     });
 
+    const buyer = db.customers.find((c) => c.id === saved.customerId);
+    const log: PointsEntry[] = [];
+
+    if (buyer) {
+      if (saved.pointsRedeemed > 0) {
+        log.push(
+          entry(buyer.id, -saved.pointsRedeemed, "redeem", `Used on ${number}`, saved.id),
+        );
+      }
+      if (saved.pointsEarned > 0) {
+        log.push(
+          entry(buyer.id, saved.pointsEarned, "purchase", `Bill ${number}`, saved.id),
+        );
+      }
+    }
+
+    // The referrer's cut of their friend's first purchase, paid once.
+    const { enabled: referralOn, firstPurchasePercent } = db.settings.referral;
+    const referrerId =
+      referralOn &&
+      firstPurchasePercent > 0 &&
+      buyer?.referredBy &&
+      !buyer.referralRewarded
+        ? buyer.referredBy
+        : undefined;
+    const referrerPoints = referrerId
+      ? Math.floor((saved.total * firstPurchasePercent) / 100)
+      : 0;
+
+    if (referrerId && referrerPoints > 0) {
+      log.push(
+        entry(
+          referrerId,
+          referrerPoints,
+          "referral-purchase",
+          `${firstPurchasePercent}% of ${buyer!.name}'s first purchase`,
+          saved.id,
+        ),
+      );
+    }
+
     const customers = db.customers.map((c) => {
-      if (c.id !== saved.customerId) return c;
-      return {
-        ...c,
-        visits: c.visits + 1,
-        totalSpent: c.totalSpent + saved.total,
-        lastVisit: saved.date,
-        loyaltyPoints: c.loyaltyPoints - saved.pointsRedeemed + saved.pointsEarned,
-      };
+      if (c.id === saved.customerId) {
+        return {
+          ...c,
+          visits: c.visits + 1,
+          totalSpent: c.totalSpent + saved.total,
+          lastVisit: saved.date,
+          loyaltyPoints:
+            c.loyaltyPoints - saved.pointsRedeemed + saved.pointsEarned,
+          referralRewarded: referrerId ? true : c.referralRewarded,
+        };
+      }
+      if (c.id === referrerId) {
+        return { ...c, loyaltyPoints: c.loyaltyPoints + referrerPoints };
+      }
+      return c;
     });
 
     return {
@@ -265,6 +435,7 @@ export function commitInvoice(
       items,
       customers,
       invoices: [saved, ...db.invoices],
+      pointsLog: [...log, ...db.pointsLog],
       settings: { ...db.settings, nextInvoiceNo: db.settings.nextInvoiceNo + 1 },
     };
   });
@@ -297,7 +468,13 @@ export function deleteInvoice(id: string) {
       };
     });
 
-    return { ...db, items, customers, invoices: db.invoices.filter((i) => i.id !== id) };
+    return {
+      ...db,
+      items,
+      customers,
+      invoices: db.invoices.filter((i) => i.id !== id),
+      pointsLog: db.pointsLog.filter((p) => p.invoiceId !== id),
+    };
   });
 }
 

@@ -16,6 +16,33 @@ export interface Customer {
   visits: number;
   lastVisit?: string; // ISO
   createdAt: string; // ISO
+  /** Shareable code this customer gives to friends. */
+  referralCode: string;
+  /** Customer id of whoever referred them. */
+  referredBy?: string;
+  /** Set once the referrer has been paid their share of the first purchase. */
+  referralRewarded?: boolean;
+}
+
+export type PointsReason =
+  | "purchase"
+  | "redeem"
+  | "referral-reward"
+  | "referral-welcome"
+  | "referral-purchase"
+  | "birthday"
+  | "manual";
+
+/** Every movement of a customer's points, so the balance is always explainable. */
+export interface PointsEntry {
+  id: string;
+  customerId: string;
+  date: string; // ISO
+  /** Positive when earned, negative when spent. */
+  points: number;
+  reason: PointsReason;
+  note?: string;
+  invoiceId?: string;
 }
 
 export interface Item {
@@ -95,6 +122,19 @@ export interface LoyaltyConfig {
   birthdayBonus: number;
 }
 
+export interface ReferralConfig {
+  enabled: boolean;
+  /** Points to the referrer, the moment their code is used. */
+  referrerBonus: number;
+  /** Welcome points to the friend who entered the code. */
+  friendBonus: number;
+  /**
+   * Extra points to the referrer worth this percentage of the friend's first
+   * bill. 0 turns it off.
+   */
+  firstPurchasePercent: number;
+}
+
 export interface Settings {
   shopName: string;
   tagline: string;
@@ -108,6 +148,7 @@ export interface Settings {
   defaultTaxRate: number;
   roundOffEnabled: boolean;
   loyalty: LoyaltyConfig;
+  referral: ReferralConfig;
   footerNote: string;
 }
 
@@ -118,4 +159,5 @@ export interface Database {
   items: Item[];
   invoices: Invoice[];
   expenses: Expense[];
+  pointsLog: PointsEntry[];
 }

@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Cake,
+  Gift,
   IndianRupee,
   Package,
   Plus,
@@ -48,6 +49,7 @@ export default function DashboardPage() {
       };
     });
 
+    const points = db.customers.reduce((s, c) => s + c.loyaltyPoints, 0);
     const thisMonth = String(now.getMonth() + 1).padStart(2, "0");
     const birthdays = db.customers.filter(
       (c) => c.birthday?.slice(5, 7) === thisMonth,
@@ -63,6 +65,8 @@ export default function DashboardPage() {
       dueCount: dues.length,
       trend,
       birthdays,
+      points,
+      referred: db.customers.filter((c) => c.referredBy).length,
     };
   }, [db, nowTs]);
 
@@ -119,7 +123,7 @@ export default function DashboardPage() {
           </Card>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <Stat
             label="Today's sale"
             value={rupeesShort(stats.todayTotal)}
@@ -136,16 +140,27 @@ export default function DashboardPage() {
           <Stat
             label="Customers"
             value={db.customers.length}
-            sub={`${db.customers.reduce((s, c) => s + c.loyaltyPoints, 0)} points issued`}
+            sub={
+              stats.referred > 0
+                ? `${stats.referred} came via referral`
+                : "saved in your book"
+            }
             icon={<Users size={15} />}
             tone="pink"
+          />
+          <Stat
+            label="Loyalty points"
+            value={stats.points}
+            sub={`worth ${rupeesShort(stats.points * db.settings.loyalty.rupeesPerPoint)}`}
+            icon={<Gift size={15} />}
+            tone="amber"
           />
           <Stat
             label="Pending dues"
             value={rupeesShort(stats.dueTotal)}
             sub={`from ${stats.dueCount} bill${stats.dueCount === 1 ? "" : "s"}`}
             icon={<ReceiptText size={15} />}
-            tone="amber"
+            tone="brand"
           />
         </div>
 

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Gift, Phone, Search, UserPlus, X } from "lucide-react";
+import { Check, Gift, Phone, Search, Ticket, UserPlus, X } from "lucide-react";
 import { clsx } from "@/lib/clsx";
 import { useCustomerSearch, useDb } from "@/lib/hooks";
 import { initials, prettyPhone, relativeDays, rupees } from "@/lib/format";
-import { saveCustomer } from "@/lib/db";
+import { findByReferralCode, saveCustomer } from "@/lib/db";
 import type { Customer } from "@/lib/types";
 import { Button } from "./ui";
 
@@ -298,8 +298,18 @@ function CustomerForm({
     address: editing?.address ?? "",
     birthday: editing?.birthday ?? "",
     notes: editing?.notes ?? "",
+    referralCodeUsed: "",
   });
   const [error, setError] = useState("");
+
+  const referral = db.settings.referral;
+  // Referral rewards are only paid when the customer is first created.
+  const showReferral = !editing && referral.enabled;
+  const referrer = showReferral
+    ? findByReferralCode(db, form.referralCodeUsed)
+    : undefined;
+  const badCode =
+    showReferral && form.referralCodeUsed.trim().length >= 4 && !referrer;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -311,6 +321,8 @@ function CustomerForm({
       (c) => c.phone === phone && c.id !== editing?.id,
     );
     if (clash) return setError(`This number already belongs to ${clash.name}.`);
+    if (badCode)
+      return setError("That referral code doesn't match any customer.");
 
     const saved = saveCustomer({
       ...(editing ? { id: editing.id } : {}),
@@ -320,6 +332,7 @@ function CustomerForm({
       address: form.address.trim() || undefined,
       birthday: form.birthday || undefined,
       notes: form.notes.trim() || undefined,
+      ...(referrer ? { referralCodeUsed: form.referralCodeUsed } : {}),
       ...(editing
         ? {
             loyaltyPoints: editing.loyaltyPoints,
@@ -415,6 +428,44 @@ function CustomerForm({
               placeholder="e.g. prefers matte lipstick, dry skin"
             />
           </div>
+
+          {showReferral ? (
+            <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-3.5">
+              <label className="label flex items-center gap-1.5">
+                <Ticket size={13} /> Referred by a friend?
+              </label>
+              <input
+                value={form.referralCodeUsed}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    referralCodeUsed: e.target.value.toUpperCase().slice(0, 12),
+                  })
+                }
+                className="field tnum tracking-widest uppercase"
+                placeholder="Enter their referral code"
+                autoComplete="off"
+              />
+              {referrer ? (
+                <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                  <Check size={13} /> {referrer.name} gets {referral.referrerBonus}{" "}
+                  points
+                  {referral.friendBonus > 0
+                    ? `, and this customer gets ${referral.friendBonus} welcome points`
+                    : ""}
+                  .
+                </p>
+              ) : badCode ? (
+                <p className="mt-2 text-xs font-bold text-rose-600">
+                  No customer has this code.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-ink-500">
+                  Optional. Both friends get bonus points.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">

@@ -8,6 +8,7 @@ import {
   Pencil,
   Phone,
   Search,
+  Ticket,
   Trash2,
   UserPlus,
   Users,
@@ -15,7 +16,9 @@ import {
 import { NewCustomerModal } from "@/components/CustomerPicker";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge, Button, Card, EmptyState, Modal } from "@/components/ui";
-import { deleteCustomer } from "@/lib/db";
+import { adjustPoints, deleteCustomer } from "@/lib/db";
+import { PointsHistory } from "@/components/PointsHistory";
+import { ReferralCard } from "@/components/ReferralCard";
 import {
   initials,
   prettyPhone,
@@ -56,6 +59,15 @@ export default function CustomersPage() {
   const history = viewing
     ? db.invoices.filter((i) => i.customerId === viewing.id)
     : [];
+  const pointsLog = viewing
+    ? db.pointsLog.filter((p) => p.customerId === viewing.id)
+    : [];
+  const referredFriends = viewing
+    ? db.customers.filter((c) => c.referredBy === viewing.id)
+    : [];
+  const referrer = viewing?.referredBy
+    ? db.customers.find((c) => c.id === viewing.referredBy)
+    : undefined;
 
   if (!mounted) return <PageHeader title="Customers" subtitle="Loading…" />;
 
@@ -121,6 +133,9 @@ export default function CustomersPage() {
                       <span className="tnum block truncate text-xs text-ink-500">
                         {prettyPhone(c.phone)} · {c.visits} visit
                         {c.visits === 1 ? "" : "s"} · {relativeDays(c.lastVisit)}
+                      </span>
+                      <span className="tnum mt-1 inline-flex items-center gap-1 rounded-md bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-ink-600">
+                        <Ticket size={9} /> {c.referralCode}
                       </span>
                     </span>
                   </button>
@@ -200,9 +215,24 @@ export default function CustomersPage() {
               />
             </div>
 
+            <ReferralCard
+              customer={viewing}
+              settings={db.settings}
+              referredCount={referredFriends.length}
+            />
+
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <Detail label="Customer since" value={shortDate(viewing.createdAt)} />
               <Detail label="Last visit" value={relativeDays(viewing.lastVisit)} />
+              {referrer ? (
+                <Detail label="Referred by" value={referrer.name} />
+              ) : null}
+              {referredFriends.length ? (
+                <Detail
+                  label="Friends referred"
+                  value={referredFriends.map((f) => f.name).join(", ")}
+                />
+              ) : null}
               {viewing.birthday ? (
                 <Detail label="Birthday" value={shortDate(viewing.birthday)} />
               ) : null}
@@ -211,6 +241,31 @@ export default function CustomersPage() {
                 <Detail label="Address" value={viewing.address} />
               ) : null}
               {viewing.notes ? <Detail label="Notes" value={viewing.notes} /> : null}
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-bold tracking-wider text-ink-500 uppercase">
+                  Points history ({pointsLog.length})
+                </p>
+                <button
+                  onClick={() => {
+                    const raw = prompt(
+                      `Adjust points for ${viewing.name}. Use a minus sign to deduct, e.g. -20`,
+                      "",
+                    );
+                    if (raw === null) return;
+                    const points = Number(raw);
+                    if (!points || Number.isNaN(points)) return;
+                    const note = prompt("Reason for this adjustment?", "Goodwill") ?? "";
+                    adjustPoints(viewing.id, points, note || "Manual adjustment");
+                  }}
+                  className="text-xs font-bold text-brand-600 hover:underline"
+                >
+                  Adjust points
+                </button>
+              </div>
+              <PointsHistory entries={pointsLog} />
             </div>
 
             <div>

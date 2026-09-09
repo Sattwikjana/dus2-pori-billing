@@ -25,9 +25,9 @@ import { rupeesShort } from "@/lib/format";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/customers", label: "Customers", icon: Users },
   { href: "/billing", label: "New Bill", icon: Plus },
   { href: "/invoices", label: "Invoices", icon: ReceiptText },
-  { href: "/customers", label: "Customers", icon: Users },
   { href: "/items", label: "Products", icon: Package },
   { href: "/khata", label: "Khata / Dues", icon: NotebookPen },
   { href: "/expenses", label: "Expenses", icon: Wallet },

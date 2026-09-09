@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { Cake, Crown, Gift, MessageCircle, Sparkles, TrendingDown } from "lucide-react";
+import {
+  Cake,
+  Crown,
+  Gift,
+  MessageCircle,
+  Sparkles,
+  Ticket,
+  TrendingDown,
+  Users,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge, Card, CardHeader, EmptyState, Stat, Toggle } from "@/components/ui";
 import { saveSettings } from "@/lib/db";
@@ -13,6 +22,7 @@ export default function LoyaltyPage() {
   const mounted = useMounted();
   const now = useNow();
   const l = db.settings.loyalty;
+  const r = db.settings.referral;
 
   const data = useMemo(() => {
     const thisMonth = String(new Date(now).getMonth() + 1).padStart(2, "0");
@@ -33,6 +43,18 @@ export default function LoyaltyPage() {
       outstanding: db.customers.reduce((s, c) => s + c.loyaltyPoints, 0),
       redeemed: db.invoices.reduce((s, i) => s + i.pointsRedeemed, 0),
       issued: db.invoices.reduce((s, i) => s + i.pointsEarned, 0),
+      referrers: db.customers
+        .map((c) => ({
+          customer: c,
+          friends: db.customers.filter((f) => f.referredBy === c.id),
+        }))
+        .filter((x) => x.friends.length > 0)
+        .sort((a, b) => b.friends.length - a.friends.length)
+        .slice(0, 8),
+      referredTotal: db.customers.filter((c) => c.referredBy).length,
+      referralPoints: db.pointsLog
+        .filter((p) => p.reason.startsWith("referral"))
+        .reduce((s, p) => s + p.points, 0),
     };
   }, [db, now]);
 
@@ -140,6 +162,109 @@ export default function LoyaltyPage() {
                 That&apos;s {(l.pointsPer100 * l.rupeesPerPoint).toFixed(1)}% back
                 on every bill — cosmetics shops usually run 2–5%.
               </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Refer a friend"
+            subtitle="Every customer has a code. When a friend uses it, both get points."
+          />
+          <div className="grid gap-5 p-5 lg:grid-cols-2">
+            <div className="space-y-1">
+              <Toggle
+                checked={r.enabled}
+                onChange={(v) => saveSettings({ referral: { ...r, enabled: v } })}
+                label="Referral programme"
+                hint="Reward customers for bringing their friends in."
+              />
+              <div className="space-y-3 pt-3">
+                <Rule
+                  label="Points to the referrer"
+                  value={r.referrerBonus}
+                  onChange={(v) =>
+                    saveSettings({ referral: { ...r, referrerBonus: v } })
+                  }
+                  suffix="points"
+                />
+                <Rule
+                  label="Welcome points to the friend"
+                  value={r.friendBonus}
+                  onChange={(v) =>
+                    saveSettings({ referral: { ...r, friendBonus: v } })
+                  }
+                  suffix="points"
+                />
+                <Rule
+                  label="Referrer also gets this % of the friend's first bill"
+                  value={r.firstPurchasePercent}
+                  onChange={(v) =>
+                    saveSettings({
+                      referral: { ...r, firstPurchasePercent: Math.min(100, v) },
+                    })
+                  }
+                  suffix="%"
+                />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-ink-100 p-3 text-center">
+                  <p className="tnum display text-xl text-ink-900">
+                    {data.referredTotal}
+                  </p>
+                  <p className="text-[11px] font-semibold text-ink-500">
+                    customers referred
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-gold-100/70 p-3 text-center">
+                  <p className="tnum display text-xl text-gold-600">
+                    {data.referralPoints}
+                  </p>
+                  <p className="text-[11px] font-semibold text-ink-500">
+                    referral points given
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-bold tracking-wider text-ink-500 uppercase">
+                <Crown size={13} className="text-gold-500" /> Top referrers
+              </p>
+              {data.referrers.length ? (
+                <ul className="divide-y divide-ink-100 rounded-2xl border border-ink-200">
+                  {data.referrers.map(({ customer, friends }) => (
+                    <li
+                      key={customer.id}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-ink-900">
+                          {customer.name}
+                        </span>
+                        <span className="tnum block truncate text-[11px] text-ink-500">
+                          <Ticket size={9} className="inline" />{" "}
+                          {customer.referralCode} ·{" "}
+                          {friends.map((f) => f.name.split(" ")[0]).join(", ")}
+                        </span>
+                      </span>
+                      <Badge tone="brand">
+                        <Users size={11} /> {friends.length}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-ink-300 px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-ink-700">
+                    No referrals yet
+                  </p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    Open a customer and tap <strong>Send code</strong> to share
+                    their referral code on WhatsApp.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </Card>

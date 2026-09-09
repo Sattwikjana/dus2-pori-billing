@@ -1,9 +1,16 @@
 "use client";
 
-import { replaceAll, uid } from "./db";
+import { deriveReferralCode, replaceAll, uid } from "./db";
 import { DEFAULT_SETTINGS } from "./db";
 import { computeBill, type DraftLine } from "./billing";
-import type { Customer, Database, Expense, Invoice, Item } from "./types";
+import type {
+  Customer,
+  Database,
+  Expense,
+  Invoice,
+  Item,
+  PointsEntry,
+} from "./types";
 
 const PRODUCTS: [name: string, category: string, price: number, stock: number][] = [
   ["Lakme Absolute Matte Lipstick", "Lips", 749, 24],
@@ -85,7 +92,44 @@ export function installDemoData() {
     totalSpent: 0,
     visits: 0,
     createdAt: daysAgo(90 - i * 3),
+    referralCode: deriveReferralCode(`demo_c_${i}`, name),
   }));
+
+  const pointsLog: PointsEntry[] = [];
+
+  // A small referral chain, so the leaderboard has something to show.
+  const { referrerBonus, friendBonus } = settings.referral;
+  for (const [friendIdx, referrerIdx] of [
+    [3, 0],
+    [5, 0],
+    [7, 1],
+    [8, 3],
+  ]) {
+    const friend = customers[friendIdx];
+    const referrer = customers[referrerIdx];
+    friend.referredBy = referrer.id;
+    friend.referralRewarded = true;
+    friend.loyaltyPoints += friendBonus;
+    referrer.loyaltyPoints += referrerBonus;
+    pointsLog.push(
+      {
+        id: uid("p_"),
+        customerId: friend.id,
+        date: friend.createdAt,
+        points: friendBonus,
+        reason: "referral-welcome",
+        note: `Joined using ${referrer.name}'s code`,
+      },
+      {
+        id: uid("p_"),
+        customerId: referrer.id,
+        date: friend.createdAt,
+        points: referrerBonus,
+        reason: "referral-reward",
+        note: `Referred ${friend.name}`,
+      },
+    );
+  }
 
   const invoices: Invoice[] = [];
   let invoiceNo = 1;
@@ -173,6 +217,28 @@ export function installDemoData() {
         customer.totalSpent += invoice.total;
         customer.lastVisit = date;
         customer.loyaltyPoints += invoice.pointsEarned - redeem;
+        if (redeem > 0) {
+          pointsLog.push({
+            id: uid("p_"),
+            customerId: customer.id,
+            date,
+            points: -redeem,
+            reason: "redeem",
+            note: `Used on ${invoice.number}`,
+            invoiceId: invoice.id,
+          });
+        }
+        if (invoice.pointsEarned > 0) {
+          pointsLog.push({
+            id: uid("p_"),
+            customerId: customer.id,
+            date,
+            points: invoice.pointsEarned,
+            reason: "purchase",
+            note: `Bill ${invoice.number}`,
+            invoiceId: invoice.id,
+          });
+        }
       }
     }
   }
@@ -206,6 +272,7 @@ export function installDemoData() {
     items,
     invoices: invoices.reverse(),
     expenses,
+    pointsLog: pointsLog.sort((a, b) => b.date.localeCompare(a.date)),
   };
   replaceAll(db);
 }
