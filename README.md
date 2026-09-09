@@ -51,10 +51,44 @@ read out over the counter. Open a customer to copy it or send it on WhatsApp.
 
 ## Where your data lives
 
-Everything — bills, customers, products, expenses — is stored **in the browser on your device**. Nothing is uploaded to any server, so there is no database to pay for and the app keeps working without internet once loaded.
+Everything — customers, points, bills, products, expenses — is stored in a
+**free Postgres database**, and mirrored onto whatever device you are using.
 
-> [!IMPORTANT]
-> Because the data is on your device, **take a backup every week**: *Settings → Download backup*. Save that file to Google Drive or WhatsApp it to yourself. If the browser data is cleared or you switch phones, that file is the only way to restore your bills. Restore with *Settings → Restore backup*.
+That mirror is what makes it work in a real shop:
+
+- **Bill without internet.** Everything saves to the device instantly. Nothing
+  waits on a network round-trip, and a dropped connection never blocks a sale.
+- **It uploads itself.** The moment the connection returns, queued changes go
+  up. The sidebar says `Saved to cloud`, `Saving…` or `Offline` so you always
+  know where you stand.
+- **Any device, same data.** Open the site on the shop computer and your phone
+  and both show the same customers and points.
+- **A wiped phone loses nothing.** Sign in on a new device and everything
+  comes back down.
+
+Only what changed is exchanged, so sync stays quick after years of bills.
+
+> [!TIP]
+> Still download a backup now and then (*Settings → Download backup*). The
+> cloud copy protects against a lost phone; a backup file protects against
+> data deleted by accident.
+
+> [!WARNING]
+> Avoid billing on two devices at the *same moment* — both would hand out the
+> same invoice number. Using them at different times is completely fine.
+
+## Setting up the database
+
+On Vercel: open your project → **Storage** → **Create Database** → **Neon**.
+Vercel injects `DATABASE_URL` for you; redeploy and *Settings* will show
+"Your data is saved in the cloud". Neon's free tier is far more than this shop
+will ever need, and no card is required.
+
+Leave `DATABASE_URL` unset and the app still runs — it just keeps everything on
+the one device, and says so.
+
+Any other Postgres works too (the app uses Neon's HTTP driver for `.neon.tech`
+hosts and a normal pooled connection otherwise), so you are not locked in.
 
 ## Login
 
@@ -67,6 +101,7 @@ Set these in **Vercel → your project → Settings → Environment Variables**:
 | `SHOP_USERNAME` | The username you sign in with |
 | `SHOP_PASSWORD` | The password you sign in with — make it long |
 | `AUTH_SECRET` | Any long random string; signs the login cookie |
+| `DATABASE_URL` | Added automatically by the Vercel Neon integration |
 
 Generate a secret with:
 
@@ -89,12 +124,16 @@ npm run dev
 
 Open http://localhost:3000
 
+Leave `DATABASE_URL` empty to run against device storage only, or point it at
+any Postgres to test syncing.
+
 ## Deploying to Vercel
 
 1. Push this repository to GitHub.
 2. Import it at [vercel.com/new](https://vercel.com/new).
-3. Add the three environment variables above.
-4. Deploy. The free Hobby plan is enough — there is no database and no backend cost.
+3. Add the environment variables above.
+4. Under **Storage**, create a Neon database — `DATABASE_URL` is wired up for you.
+5. Deploy. Vercel's Hobby plan and Neon's free tier cover this shop at no cost.
 
 ## Installing it on a phone
 
@@ -102,7 +141,7 @@ Open the site in Chrome on Android → menu → **Add to Home screen**. It then 
 
 ## Built with
 
-Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · jsPDF
+Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Postgres (Neon) · jsPDF
 
 ---
 

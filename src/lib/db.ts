@@ -116,16 +116,230 @@ function read(): Database {
   }
 }
 
-function persist(next: Database) {
+function writeLocal(next: Database) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(next));
+  } catch (err) {
+    console.error("Could not save data — storage may be full.", err);
+  }
+}
+
+function persist(next: Database, markDirty = true) {
+  const prev = cache;
   cache = next;
+  writeLocal(next);
+  // Anything that changed locally is owed to the server.
+  if (markDirty && prev) addPending(diffDirty(prev, next));
+  listeners.forEach((l) => l());
+}
+
+// ── Change tracking for cloud sync ──────────────────────────────────────
+
+const SYNC_KEY = "dus2pori:sync:v1";
+
+/** Record collections, keyed the same way on the client and the server. */
+export const SYNC_KINDS = [
+  "customers",
+  "items",
+  "invoices",
+  "expenses",
+  "pointsLog",
+] as const;
+export type SyncKind = (typeof SYNC_KINDS)[number];
+
+/** Settings is a single record, so it needs a fixed id. */
+export const SETTINGS_ID = "shop";
+
+interface SyncState {
+  /** Server timestamp of the last successful pull. */
+  cursor: string | null;
+  /** `kind:id` of every record not yet accepted by the server. */
+  pending: string[];
+}
+
+let syncState: SyncState | null = null;
+const syncListeners = new Set<() => void>();
+
+function readSync(): SyncState {
+  if (syncState) return syncState;
+  if (typeof window === "undefined") return (syncState = { cursor: null, pending: [] });
+  try {
+    const raw = window.localStorage.getItem(SYNC_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Partial<SyncState>) : null;
+    syncState = {
+      cursor: parsed?.cursor ?? null,
+      pending: Array.isArray(parsed?.pending) ? parsed.pending : [],
+    };
+  } catch {
+    syncState = { cursor: null, pending: [] };
+  }
+  return syncState;
+}
+
+function writeSync(next: SyncState) {
+  syncState = next;
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(KEY, JSON.stringify(next));
-    } catch (err) {
-      console.error("Could not save data — storage may be full.", err);
+      window.localStorage.setItem(SYNC_KEY, JSON.stringify(next));
+    } catch {
+      // A full disk shouldn't take the app down; the next write will retry.
     }
   }
-  listeners.forEach((l) => l());
+  syncListeners.forEach((l) => l());
+}
+
+export function subscribeSync(listener: () => void) {
+  syncListeners.add(listener);
+  return () => syncListeners.delete(listener);
+}
+
+export function getSyncState(): SyncState {
+  return readSync();
+}
+
+function addPending(keys: string[]) {
+  if (!keys.length) return;
+  const state = readSync();
+  const merged = new Set(state.pending);
+  for (const k of keys) merged.add(k);
+  if (merged.size === state.pending.length) return;
+  writeSync({ ...state, pending: [...merged] });
+}
+
+export function clearPending(keys: string[]) {
+  const state = readSync();
+  const done = new Set(keys);
+  const left = state.pending.filter((k) => !done.has(k));
+  if (left.length !== state.pending.length) writeSync({ ...state, pending: left });
+}
+
+export function setCursor(cursor: string) {
+  writeSync({ ...readSync(), cursor });
+}
+
+/** Queues every local record for upload — used the first time a shop connects. */
+export function markEverythingPending() {
+  const db = read();
+  const keys: string[] = [`settings:${SETTINGS_ID}`];
+  for (const kind of SYNC_KINDS) {
+    for (const row of db[kind]) keys.push(`${kind}:${row.id}`);
+  }
+  addPending(keys);
+}
+
+/**
+ * Mutations rebuild only the objects they touch, so an identity check is
+ * enough to spot what changed — and an id present before but absent after is
+ * a delete, which the server stores as a tombstone.
+ */
+function diffDirty(prev: Database, next: Database): string[] {
+  const keys: string[] = [];
+  for (const kind of SYNC_KINDS) {
+    const before = new Map(prev[kind].map((r) => [r.id, r] as const));
+    for (const row of next[kind]) {
+      if (before.get(row.id) !== row) keys.push(`${kind}:${row.id}`);
+      before.delete(row.id);
+    }
+    for (const id of before.keys()) keys.push(`${kind}:${id}`);
+  }
+  if (prev.settings !== next.settings) keys.push(`settings:${SETTINGS_ID}`);
+  return keys;
+}
+
+export interface RemoteRecord {
+  kind: string;
+  id: string;
+  data: unknown;
+  updatedAt: string;
+  deleted: boolean;
+}
+
+/** Every list is shown newest-first, but they don't all date the same field. */
+const SORT_KEY: { [K in SyncKind]: (row: Database[K][number]) => string } = {
+  customers: (c) => c.createdAt,
+  items: (i) => i.createdAt,
+  invoices: (i) => i.date,
+  expenses: (e) => e.date,
+  pointsLog: (p) => p.date,
+};
+
+function mergeKind<K extends SyncKind>(
+  target: Database,
+  kind: K,
+  rows: RemoteRecord[],
+): boolean {
+  const incoming = rows.filter((r) => r.kind === kind);
+  if (!incoming.length) return false;
+
+  type Row = Database[K][number];
+  const byId = new Map<string, Row>(
+    (target[kind] as Row[]).map((r) => [r.id, r] as const),
+  );
+  for (const row of incoming) {
+    if (row.deleted) byId.delete(row.id);
+    else byId.set(row.id, row.data as Row);
+  }
+
+  const key = SORT_KEY[kind] as (row: Row) => string;
+  target[kind] = [...byId.values()].sort((a, b) =>
+    key(b).localeCompare(key(a)),
+  ) as Database[K];
+  return true;
+}
+
+/**
+ * Folds server records into the local copy. Applied changes are not marked
+ * dirty — they already live on the server.
+ */
+export function applyRemote(rows: RemoteRecord[]) {
+  if (!rows.length) return;
+  const next: Database = { ...read() };
+  let changed = false;
+
+  for (const kind of SYNC_KINDS) {
+    if (mergeKind(next, kind, rows)) changed = true;
+  }
+
+  const remoteSettings = rows.find(
+    (r) => r.kind === "settings" && r.id === SETTINGS_ID && !r.deleted,
+  );
+  if (remoteSettings) {
+    const incoming = remoteSettings.data as Settings;
+    next.settings = {
+      ...DEFAULT_SETTINGS,
+      ...incoming,
+      loyalty: { ...DEFAULT_SETTINGS.loyalty, ...incoming.loyalty },
+      referral: { ...DEFAULT_SETTINGS.referral, ...incoming.referral },
+      // Never hand back a bill number this device has already used.
+      nextInvoiceNo: Math.max(
+        incoming.nextInvoiceNo ?? 1,
+        next.settings.nextInvoiceNo ?? 1,
+      ),
+    };
+    changed = true;
+  }
+
+  if (changed) persist(next, false);
+}
+
+/** The records the server is still owed, resolved against current state. */
+export function collectPending() {
+  const db = read();
+  const state = readSync();
+  return state.pending.map((key) => {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep);
+    const id = key.slice(sep + 1);
+
+    if (kind === "settings") {
+      return { key, kind, id, data: db.settings, deleted: false };
+    }
+    const row = (db[kind as SyncKind] ?? []).find((r) => r.id === id);
+    return row
+      ? { key, kind, id, data: row, deleted: false }
+      : { key, kind, id, data: null, deleted: true };
+  });
 }
 
 export function subscribe(listener: () => void) {
@@ -167,6 +381,8 @@ export function replaceAll(next: Database) {
     settings: { ...DEFAULT_SETTINGS, ...next.settings },
     version: VERSION,
   });
+  // A restore or demo load rewrites everything, so queue the lot.
+  markEverythingPending();
 }
 
 export function uid(prefix = "") {
@@ -500,5 +716,12 @@ export function exportJson(): string {
 }
 
 export function clearAll() {
+  const before = read();
   persist(emptyDb());
+  // Tombstone every record that existed, so other devices drop them too.
+  const keys: string[] = [`settings:${SETTINGS_ID}`];
+  for (const kind of SYNC_KINDS) {
+    for (const row of before[kind]) keys.push(`${kind}:${row.id}`);
+  }
+  addPending(keys);
 }

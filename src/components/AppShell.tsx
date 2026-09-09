@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { BrandLogo } from "./Brand";
+import { SyncBadge } from "./SyncStatus";
 import { clsx } from "@/lib/clsx";
 import { localDayKey, useDb, useMounted, useNow } from "@/lib/hooks";
 import { rupeesShort } from "@/lib/format";
@@ -183,10 +184,10 @@ function SidebarInner({
 
       <div className="relative border-t border-white/10 px-4 py-3">
         <p className="truncate px-1 text-xs font-bold text-white">{shopName}</p>
-        <p className="mt-0.5 px-1 text-[11px] text-brand-300/70">
-          Data saved on this device
-        </p>
-        <form action="/api/auth/logout" method="post" className="mt-2.5">
+        <div className="mt-1.5">
+          <SyncBadge />
+        </div>
+        <form action="/api/auth/logout" method="post" className="mt-0.5">
           <button
             type="submit"
             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-brand-200/70 transition-colors hover:bg-white/10 hover:text-white"

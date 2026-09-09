@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Database, Download, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { BrandLogo } from "@/components/Brand";
+import { SyncPanel } from "@/components/SyncStatus";
 import { Button, Card, CardHeader, Toggle } from "@/components/ui";
 import { clearAll, exportJson, replaceAll, saveSettings } from "@/lib/db";
 import { installDemoData } from "@/lib/seed";
@@ -180,17 +181,19 @@ export default function SettingsPage() {
         <Card>
           <CardHeader
             title="Your data"
-            subtitle="Everything is stored in this browser — nothing is uploaded anywhere."
+            subtitle="Stored in the cloud, and kept on this device so billing works offline."
           />
           <div className="space-y-4 p-5">
+            <SyncPanel />
+
             <div className="flex items-start gap-3 rounded-2xl bg-brand-50 p-4">
               <ShieldCheck size={18} className="mt-0.5 shrink-0 text-brand-600" />
               <div className="text-xs text-brand-900">
-                <p className="font-bold">Take a backup every week.</p>
+                <p className="font-bold">A monthly backup is still worth keeping.</p>
                 <p className="mt-0.5 text-brand-800/80">
-                  Your bills live on this device only. If you clear the browser data or
-                  change phones, a backup file is the only way to get them back — save it
-                  to Google Drive or WhatsApp it to yourself.
+                  The cloud copy is your safety net for a lost or wiped phone. A
+                  downloaded backup file protects against the other kind of mistake —
+                  data deleted by accident — so save one to Google Drive now and then.
                 </p>
               </div>
             </div>
