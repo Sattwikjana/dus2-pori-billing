@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
+@theme {
+  /* Brand pink, sampled from the Dus2 PORI logo (#F2278A). */
+  --color-brand-50: #fff1f7;
+  --color-brand-100: #ffe3ef;
+  --color-brand-200: #ffc7df;
+  --color-brand-300: #ff9bc6;
+  --color-brand-400: #fb60a5;
+  --color-brand-500: #f2278a;
+  --color-brand-600: #db1071;
+  --color-brand-700: #b70a5c;
+  --color-brand-800: #96104f;
+  --color-brand-900: #7d1246;
+  --color-brand-950: #4a0526;
+
+  /* Deep wine — the dark surface the pink sits on. */
+  --color-plum-700: #4a1c36;
+  --color-plum-800: #38142a;
+  --color-plum-900: #2a0e21;
+  --color-plum-950: #190711;
+
+  /* Champagne gold, for loyalty and other "premium" moments. */
+  --color-gold-100: #f9efd6;
+  --color-gold-200: #f0dcaa;
+  --color-gold-400: #e3c078;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a8861c;
+
+  /* Neutrals, warmed a touch toward the plum so nothing reads cold. */
+  --color-ink-50: #faf7f9;
+  --color-ink-100: #f4eff3;
+  --color-ink-200: #e9e2e8;
+  --color-ink-300: #d6cad3;
+  --color-ink-400: #a99ca7;
+  --color-ink-500: #7c6f7a;
+  --color-ink-600: #5c505a;
+  --color-ink-700: #443b43;
+  --color-ink-800: #2e272d;
+  --color-ink-900: #1b161a;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+
+  /* Shadows carry a hint of plum rather than neutral grey. */
+  --shadow-card: 0 1px 2px rgb(42 14 33 / 0.04), 0 6px 20px -8px rgb(42 14 33 / 0.10);
+  --shadow-lift: 0 2px 4px rgb(42 14 33 / 0.05), 0 12px 32px -10px rgb(42 14 33 / 0.16);
+  --shadow-pop: 0 12px 44px -12px rgb(42 14 33 / 0.28);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink-100);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Elegant serif for titles and headline figures. */
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Tabular figures keep money columns aligned. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@utility field {
+  width: 100%;
+  border-radius: calc(var(--spacing) * 3);
+  border: 1px solid var(--color-ink-200);
+  background: white;
+  padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3.5);
+  font-size: 0.875rem;
+  color: var(--color-ink-900);
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.field::placeholder {
+  color: var(--color-ink-400);
+}
+.field:focus {
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3.5px var(--color-brand-100);
+}
+.field:disabled {
+  background: var(--color-ink-100);
+  color: var(--color-ink-500);
+}
+
+@utility label {
+  display: block;
+  margin-bottom: calc(var(--spacing) * 1.5);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+@utility card {
+  border-radius: calc(var(--spacing) * 5);
+  border: 1px solid var(--color-ink-200);
+  background: white;
+  box-shadow: var(--shadow-card);
+}
+
+/* Thin gold rule used under section titles. */
+@utility gold-rule {
+  height: 2px;
+  width: calc(var(--spacing) * 8);
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-brand-500),
+    var(--color-gold-400)
+  );
+}
+
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-ink-300);
+  border-radius: 999px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop {
+  animation: pop-in 150ms ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-slide-up {
+  animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ── Printing ──────────────────────────────────────────────────────────
+   Only the element marked .print-area reaches the paper / PDF.          */
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  @page {
+    margin: 12mm;
+  }
 }

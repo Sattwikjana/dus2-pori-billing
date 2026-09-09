@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
+  <img src="public/logo.png" alt="Dus2 PORI" width="260" />
 
-## Getting Started
+  ### Billing, inventory & loyalty for the Dus2 PORI cosmetics store
+  Free to run. Free to host. No monthly fee, no per-bill charge, no account.
+</div>
 
-First, run the development server:
+---
+
+## What it does
+
+| | |
+|---|---|
+| 🧾 **Billing** | Build a bill in seconds, print it, or send it on WhatsApp |
+| 📱 **Instant customer lookup** | Type the **last 4–5 digits** of a mobile number and a returning customer appears with their name, points, visits and lifetime spend — every detail auto-fills |
+| ⭐ **Loyalty points** | Earn on every bill, redeem against future ones. You set the rules |
+| 📦 **Products & stock** | Stock drops automatically with each sale, with low-stock and out-of-stock alerts |
+| 📓 **Khata / Udhaar** | Track who still owes you, and send a polite WhatsApp reminder in one tap |
+| 💸 **Expenses** | Rent, stock, salary, electricity — so reports show what you actually earned |
+| 📊 **Reports** | Daily sales, best sellers, top customers, payment-mode split, CSV export |
+| 🎂 **Birthday offers** | See whose birthday falls this month and message them |
+| 📄 **One-click PDF** | Download or share a proper A4 invoice with your logo |
+
+## Where your data lives
+
+Everything — bills, customers, products, expenses — is stored **in the browser on your device**. Nothing is uploaded to any server, so there is no database to pay for and the app keeps working without internet once loaded.
+
+> [!IMPORTANT]
+> Because the data is on your device, **take a backup every week**: *Settings → Download backup*. Save that file to Google Drive or WhatsApp it to yourself. If the browser data is cleared or you switch phones, that file is the only way to restore your bills. Restore with *Settings → Restore backup*.
+
+## Login
+
+The whole site sits behind one username and password, checked on the server before any page loads.
+
+Set these in **Vercel → your project → Settings → Environment Variables**:
+
+| Variable | What it is |
+|---|---|
+| `SHOP_USERNAME` | The username you sign in with |
+| `SHOP_PASSWORD` | The password you sign in with — make it long |
+| `AUTH_SECRET` | Any long random string; signs the login cookie |
+
+Generate a secret with:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+openssl rand -base64 32
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> [!WARNING]
+> If you don't set `SHOP_USERNAME` and `SHOP_PASSWORD`, the app falls back to built-in defaults that are public in this repository. Set your own before you share the link with anyone.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Redeploy after changing them. Changing the password signs everyone out.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Running it on your own computer
 
-## Learn More
+```bash
+npm install
+cp .env.example .env.local   # then edit .env.local
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploying to Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push this repository to GitHub.
+2. Import it at [vercel.com/new](https://vercel.com/new).
+3. Add the three environment variables above.
+4. Deploy. The free Hobby plan is enough — there is no database and no backend cost.
 
-## Deploy on Vercel
+## Installing it on a phone
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open the site in Chrome on Android → menu → **Add to Home screen**. It then opens like a normal app, full screen, and works offline.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Built with
+
+Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · jsPDF
+
+---
+
+<div align="center"><sub>Made for Dus2 PORI 💜</sub></div>
