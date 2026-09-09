@@ -71,7 +71,7 @@ function LoginScreen() {
               "Find any old customer by 4–5 digits of their mobile",
               "GST-ready invoices, print or send on WhatsApp",
               "Loyalty points, stock alerts and daily reports",
-              "Works offline — your data stays on your device",
+              "Works without internet — and syncs the moment it returns",
             ].map((line) => (
               <li key={line} className="flex items-start gap-2.5 text-sm text-brand-100">
                 <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-400" />
@@ -181,8 +181,8 @@ function LoginScreen() {
           <div className="mt-8 flex items-start gap-2.5 rounded-2xl bg-ink-100 p-3.5">
             <ShieldCheck size={16} className="mt-0.5 shrink-0 text-brand-600" />
             <p className="text-[11px] leading-relaxed text-ink-600">
-              Your bills and customer data never leave this device. The login only
-              controls who can open the app.
+              Your shop data is stored privately for this shop alone, and every
+              page is behind this login.
             </p>
           </div>
         </div>

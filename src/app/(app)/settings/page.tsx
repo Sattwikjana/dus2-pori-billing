@@ -46,7 +46,7 @@ export default function SettingsPage() {
         }
         if (
           confirm(
-            `Restore ${parsed.invoices.length} bills and ${parsed.customers.length} customers? This replaces everything currently on this device.`,
+            `Restore ${parsed.invoices.length} bills and ${parsed.customers.length} customers?\n\nThis replaces everything currently saved — on this device and in the cloud, so on your other devices too.`,
           )
         ) {
           replaceAll(parsed);
@@ -245,7 +245,7 @@ export default function SettingsPage() {
                 onClick={() => {
                   if (
                     confirm(
-                      "Delete ALL bills, customers and products from this device? Download a backup first — this cannot be undone.",
+                      "Delete ALL bills, customers and products?\n\nThis erases them from the cloud as well, so they will disappear from your other devices too. Download a backup first — this cannot be undone.",
                     ) &&
                     confirm("Are you absolutely sure?")
                   ) {

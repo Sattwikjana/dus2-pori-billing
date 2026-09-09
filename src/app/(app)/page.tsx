@@ -97,8 +97,9 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-plum-900 px-6 py-8 text-white">
               <h2 className="text-xl font-extrabold">Let&apos;s set up your shop</h2>
               <p className="mt-1 max-w-lg text-sm text-white/80">
-                Add your products, then start billing. Everything is stored right on
-                this device — no account, no monthly fee.
+                Add your products, then start billing. Everything is saved to the
+                cloud and kept on this device too, so it works even without
+                internet.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link href="/items">
