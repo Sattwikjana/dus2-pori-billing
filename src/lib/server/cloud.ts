@@ -22,8 +22,21 @@ type Query = (text: string, params?: unknown[]) => Promise<Row[]>;
  * you want from a serverless function. Any other Postgres (a local one, or a
  * self-hosted server) goes through a normal pooled connection.
  */
+/**
+ * Matching on the parsed hostname rather than the raw string: a Neon URL may
+ * end at the host and go straight into `?sslmode=require`, which a naive
+ * pattern would miss and silently fall back to the wrong driver.
+ */
+function isNeonHost(url: string) {
+  try {
+    return new URL(url).hostname.toLowerCase().endsWith(".neon.tech");
+  } catch {
+    return false;
+  }
+}
+
 function makeQuery(): Query {
-  if (/\.neon\.tech(:|\/|$)/.test(connectionString)) {
+  if (isNeonHost(connectionString)) {
     const sql = neon(connectionString);
     return async (text, params = []) =>
       (await sql.query(text, params)) as Row[];
